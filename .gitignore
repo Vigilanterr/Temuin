@@ -1,0 +1,72 @@
+# ==========================================
+# 1. PENGATURAN GLOBAL & OS
+# ==========================================
+# File sistem operasi
+.DS_Store
+Thumbs.db
+
+# File IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# File Log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# 2. FOLDER BACKEND (Node.js / TypeScript)
+# ==========================================
+# Dependencies
+backend/node_modules/
+
+# File Environment (PENTING: Jangan pernah commit file ini!)
+backend/.env
+backend/.env.local
+backend/.env.production
+
+# Hasil Build / Compile TypeScript
+backend/dist/
+backend/build/
+
+# File cache (jika pakai ts-node atau testing)
+backend/.tsbuildinfo
+backend/coverage/
+
+# ==========================================
+# 3. FOLDER MOBILE (Flutter)
+# ==========================================
+# File environment Flutter
+mobile/.env
+
+# Dependencies & Build output
+mobile/.dart_tool/
+mobile/.packages
+mobile/.pub-cache/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+# File konfigurasi lokal Android/iOS
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+
+# File hasil build release (APK/AAB/IPA)
+*.apk
+*.aab
+*.ipa
+
+# File yang biasanya di-generate otomatis
+mobile/*.iml
+mobile/.idea/
