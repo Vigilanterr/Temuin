@@ -12,7 +12,7 @@ servers: [
   {
     url:
       process.env.NODE_ENV === 'production'
-        ? 'https://domain-kamu.com'
+        ? 'temuin-backend.devrpl.site'
         : 'http://localhost:3000',
     description:
       process.env.NODE_ENV === 'production'
