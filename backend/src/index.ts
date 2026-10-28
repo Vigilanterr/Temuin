@@ -30,3 +30,5 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customCssUr
 app.listen(PORT, () => {
     console.log('berhasil jlan');
 });
+
+export default app

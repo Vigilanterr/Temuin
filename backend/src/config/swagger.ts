@@ -8,12 +8,18 @@ const swaggerOptions: swaggerJSDoc.Options = {
       version: '1.0.0',
       description: 'Dokumentasi REST API untuk platform Lost & Found',
     },
-    servers: [
-      {
-        url: 'http://localhost:3000',
-        description: 'Development Server',
-      },
-    ],
+servers: [
+  {
+    url:
+      process.env.NODE_ENV === 'production'
+        ? 'https://domain-kamu.com'
+        : 'http://localhost:3000',
+    description:
+      process.env.NODE_ENV === 'production'
+        ? 'Production Server'
+        : 'Development Server',
+  },
+],
     components: {
       securitySchemes: {
         bearerAuth: {
