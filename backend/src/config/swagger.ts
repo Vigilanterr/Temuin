@@ -1,4 +1,5 @@
 import swaggerJSDoc from 'swagger-jsdoc';
+import path from 'path'; 
 
 const swaggerOptions: swaggerJSDoc.Options = {
   definition: {
@@ -8,18 +9,18 @@ const swaggerOptions: swaggerJSDoc.Options = {
       version: '1.0.0',
       description: 'Dokumentasi REST API untuk platform Lost & Found',
     },
-servers: [
-  {
-    url:
-      process.env.NODE_ENV === 'production'
-        ? 'temuin-backend.devrpl.site'
-        : 'http://localhost:3000',
-    description:
-      process.env.NODE_ENV === 'production'
-        ? 'Production Server'
-        : 'Development Server',
-  },
-],
+    servers: [
+      {
+        url:
+          process.env.NODE_ENV === 'production'
+            ? 'https://temuin-backend.devrpl.site' 
+            : 'http://localhost:3000',
+        description:
+          process.env.NODE_ENV === 'production'
+            ? 'Production Server'
+            : 'Development Server',
+      },
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -30,7 +31,10 @@ servers: [
       },
     },
   },
-  apis: ['./src/routes/*.ts'], 
+  apis: [
+    path.join(__dirname, '../routes/*.ts'),
+    path.join(__dirname, '../routes/*.js')
+  ], 
 };
 
 export const swaggerSpec = swaggerJSDoc(swaggerOptions);
