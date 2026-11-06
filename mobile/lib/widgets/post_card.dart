@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
@@ -19,32 +21,55 @@ class PostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = _isValidUrl(url)
-        ? Image.network(
-            url!,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                color: AppColors.secondary,
-                child: const Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (_, _, _) => const _ImageFallback(),
-          )
-        : const _ImageFallback();
+    Widget image;
+    final raw = url?.trim();
+    if (raw != null && raw.startsWith('data:image/')) {
+      image = _fromDataUri(raw);
+    } else if (_isValidUrl(raw)) {
+      image = Image.network(
+        raw!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: AppColors.secondary,
+            child: const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, _, _) => const _ImageFallback(),
+      );
+    } else {
+      image = const _ImageFallback();
+    }
 
     return ClipRRect(
       borderRadius: borderRadius,
       child: SizedBox(height: height, width: double.infinity, child: image),
     );
+  }
+
+  /// Photos are stored as base64 data URIs because the backend has no upload
+  /// endpoint.
+  static Widget _fromDataUri(String raw) {
+    final comma = raw.indexOf(',');
+    if (comma < 0) return const _ImageFallback();
+    try {
+      return Image.memory(
+        base64Decode(raw.substring(comma + 1)),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (_, _, _) => const _ImageFallback(),
+      );
+    } catch (_) {
+      return const _ImageFallback();
+    }
   }
 
   static bool _isValidUrl(String? value) {

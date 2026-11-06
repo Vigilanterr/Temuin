@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,6 @@ import '../theme.dart';
 import '../utils/responsive.dart';
 import '../utils/validators.dart';
 import '../widgets/common.dart';
-import '../widgets/post_card.dart';
 
 class CreatePostPage extends StatefulWidget {
   const CreatePostPage({
@@ -36,22 +36,23 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
-  final _imageUrlController = TextEditingController();
 
   PostType _type = PostType.lost;
   bool _isSubmitting = false;
   bool _isPicking = false;
   Uint8List? _pickedBytes;
+  String? _pickedMime;
   String? _pickedName;
 
-  static const _maxImageBytes = 5 * 1024 * 1024;
+  /// Backend caps JSON bodies at 100 KB, so the embedded photo must fit
+  /// under that budget once base64 encoded.
+  static const _maxEncodedChars = 95000;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
-    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -84,20 +85,26 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       final file = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 85,
+        maxWidth: 720,
+        imageQuality: 45,
       );
       if (file == null) return;
 
       final bytes = await file.readAsBytes();
-      if (bytes.length > _maxImageBytes) {
+      if (bytes.isEmpty) return;
+      final encodedLength = ((bytes.length + 2) ~/ 3) * 4;
+      if (encodedLength > _maxEncodedChars) {
         if (!mounted) return;
-        _showMessage('Ukuran foto maksimal 5 MB.', isError: true);
+        _showMessage(
+          'Foto terlalu besar untuk dikirim. Pilih foto lain.',
+          isError: true,
+        );
         return;
       }
       if (!mounted) return;
       setState(() {
         _pickedBytes = bytes;
+        _pickedMime = file.mimeType ?? 'image/jpeg';
         _pickedName = file.name;
       });
     } on PlatformException catch (error) {
@@ -143,37 +150,17 @@ class _CreatePostPageState extends State<CreatePostPage> {
   void _clearPickedImage() {
     setState(() {
       _pickedBytes = null;
+      _pickedMime = null;
       _pickedName = null;
     });
   }
 
-  /// Backend has no upload endpoint, so a picked photo cannot be attached.
-  /// Confirm honestly instead of silently dropping it.
-  Future<bool> _confirmUnattachedPhoto() async {
-    if (_pickedBytes == null || _imageUrlController.text.trim().isNotEmpty) {
-      return true;
-    }
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Foto belum bisa dikirim'),
-        content: const Text(
-          'Server belum mendukung upload file, jadi foto dari galeri hanya '
-          'pratinjau lokal. Laporan tetap dikirim tanpa foto. Lanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Kirim tanpa foto'),
-          ),
-        ],
-      ),
-    );
-    return proceed ?? false;
+  /// The backend stores photos in the URL string column, so the picked image
+  /// travels with the post payload as a data URI.
+  String? get _imagePayload {
+    final bytes = _pickedBytes;
+    if (bytes == null) return null;
+    return 'data:${_pickedMime ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
   }
 
   Future<void> _handleSubmit() async {
@@ -189,13 +176,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
       return;
     }
 
-    if (!await _confirmUnattachedPhoto()) return;
-    if (!mounted) return;
-
     FocusScope.of(context).unfocus();
     setState(() => _isSubmitting = true);
 
-    final imageUrl = _imageUrlController.text.trim();
     try {
       await ApiPost.createPost(
         userId: userId,
@@ -203,7 +186,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         location: _locationController.text.trim(),
-        imageUrl: imageUrl.isEmpty ? null : imageUrl,
+        imageUrl: _imagePayload,
       );
       if (!mounted) return;
 
@@ -227,10 +210,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
     _titleController.clear();
     _descriptionController.clear();
     _locationController.clear();
-    _imageUrlController.clear();
     setState(() {
       _type = PostType.lost;
       _pickedBytes = null;
+      _pickedMime = null;
       _pickedName = null;
     });
   }
@@ -246,12 +229,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = _imageUrlController.text.trim();
-    final showPreview =
-        imageUrl.isNotEmpty &&
-        validateOptionalUrl(imageUrl) == null &&
-        Uri.tryParse(imageUrl) != null;
-
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: SingleChildScrollView(
@@ -374,7 +351,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${_pickedName ?? 'Foto galeri'} · pratinjau lokal',
+                            '${_pickedName ?? 'Foto galeri'} · ikut terkirim ke server',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall,
@@ -397,29 +374,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
                                   : 'Pilih foto dari galeri',
                             ),
                           ),
-                        const SizedBox(height: 14),
-                        const InfoBanner(
-                          message: 'Upload file belum didukung server. Foto galeri hanya pratinjau; tempel URL gambar publik agar foto tampil pada laporan.',
-                          icon: Icons.cloud_off_outlined,
+                        const SizedBox(height: 10),
+                        Text(
+                          'Foto otomatis dikompres agar ringan dikirim.',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        const SizedBox(height: 14),
-                        AppTextField(
-                          controller: _imageUrlController,
-                          label: 'URL foto',
-                          hint: 'https://contoh.com/foto.jpg',
-                          prefixIcon: Icons.link_rounded,
-                          keyboardType: TextInputType.url,
-                          textInputAction: TextInputAction.done,
-                          validator: validateOptionalUrl,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        if (showPreview) ...[
-                          const SizedBox(height: 14),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: PostImage(url: imageUrl, height: 180),
-                          ),
-                        ],
                       ],
                     ),
                   ),

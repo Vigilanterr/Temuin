@@ -224,14 +224,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _resolveDisplayName(List<Post> posts) {
-    final saved = Session.name?.trim();
-    if (saved != null && saved.isNotEmpty) return saved;
-
     for (final post in posts) {
       if (!post.isOwnedBy(Session.userId)) continue;
       final author = post.authorName?.trim();
       if (author != null && author.isNotEmpty) return author;
     }
+
+    final saved = Session.name?.trim();
+    if (saved != null && saved.isNotEmpty) return saved;
     return Session.displayName;
   }
 }

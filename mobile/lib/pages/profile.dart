@@ -9,7 +9,6 @@ import '../models/post.dart';
 import '../models/session.dart';
 import '../theme.dart';
 import '../utils/responsive.dart';
-import '../utils/validators.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
 import 'login.dart';
@@ -130,13 +129,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String _resolveDisplayName(List<Post> ownPosts) {
-    final saved = Session.name?.trim();
-    if (saved != null && saved.isNotEmpty) return saved;
-
     for (final post in ownPosts) {
       final author = post.authorName?.trim();
       if (author != null && author.isNotEmpty) return author;
     }
+
+    final saved = Session.name?.trim();
+    if (saved != null && saved.isNotEmpty) return saved;
     return Session.displayName;
   }
 
@@ -155,7 +154,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result == null || !mounted) return;
 
     await Session.updateProfile(
-      newName: result.name,
       newAvatarBase64: result.avatarBase64,
       clearAvatar: result.clearAvatar,
     );
@@ -379,18 +377,9 @@ class _AccountCard extends StatelessWidget {
             label: 'Nama tampilan',
             value: displayName,
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(),
-          ),
-          _AccountRow(
-            icon: Icons.badge_outlined,
-            label: 'ID pengguna',
-            value: Session.userId == null ? '-' : '#${Session.userId}',
-          ),
           const SizedBox(height: 16),
           const InfoBanner(
-            message: 'Nama dan foto profil disimpan di perangkat ini. Sinkronisasi ke server membutuhkan endpoint profil dari backend.',
+            message: 'Email dan nama tampilan dibaca dari data akun di server.',
           ),
         ],
       ),
@@ -500,12 +489,10 @@ class _MyPostsPreviewCard extends StatelessWidget {
 
 class _ProfileEditResult {
   const _ProfileEditResult({
-    required this.name,
     required this.avatarBase64,
     required this.clearAvatar,
   });
 
-  final String name;
   final String? avatarBase64;
   final bool clearAvatar;
 }
@@ -526,10 +513,6 @@ class _EditProfileSheet extends StatefulWidget {
 }
 
 class _EditProfileSheetState extends State<_EditProfileSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController = TextEditingController(
-    text: widget.initialName,
-  );
   String? _avatarBase64;
   bool _avatarChanged = false;
   bool _isPicking = false;
@@ -539,12 +522,6 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   void initState() {
     super.initState();
     _avatarBase64 = widget.initialAvatarBase64;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
   }
 
   Future<void> _pickAvatar() async {
@@ -583,11 +560,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   }
 
   void _save() {
-    if (!_formKey.currentState!.validate()) return;
     Navigator.pop(
       context,
       _ProfileEditResult(
-        name: _nameController.text.trim(),
         avatarBase64: _avatarBase64,
         clearAvatar: _avatarChanged && _avatarBase64 == null,
       ),
@@ -600,118 +575,102 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 18),
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Text(
-                'Edit profil',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 4),
-              Text(widget.email, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 20),
-              Center(
-                child: Column(
-                  children: [
-                    UserAvatar(
-                      name: _nameController.text.isEmpty
-                          ? widget.initialName
-                          : _nameController.text,
-                      radius: 44,
-                      imageBase64: _avatarBase64,
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _isPicking ? null : _pickAvatar,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                          ),
-                          icon: _isPicking
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.photo_library_outlined,
-                                  size: 18,
-                                ),
-                          label: const Text('Pilih foto'),
-                        ),
-                        if (_avatarBase64 != null)
-                          TextButton(
-                            onPressed: _removeAvatar,
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                            ),
-                            child: const Text('Hapus foto'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              AppTextField(
-                controller: _nameController,
-                label: 'Nama tampilan',
-                prefixIcon: Icons.person_outline_rounded,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.done,
-                validator: (value) => validateRequired(value, 'Nama'),
-                onChanged: (_) => setState(() {}),
-                onFieldSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: 16),
-              if (_error != null) ...[
-                InfoBanner(
-                  message: _error!,
-                  icon: Icons.error_outline_rounded,
-                  backgroundColor: AppColors.errorSurface,
-                  foregroundColor: AppColors.error,
-                ),
-                const SizedBox(height: 12),
-              ],
-              const InfoBanner(
-                message: 'Perubahan ini disimpan lokal di perangkat. Backend belum menyediakan endpoint untuk memperbarui profil di server.',
-              ),
-              const SizedBox(height: 20),
-              Row(
+            ),
+            Text('Foto profil', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.initialName} · ${widget.email}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Batal'),
-                    ),
+                  UserAvatar(
+                    name: widget.initialName,
+                    radius: 44,
+                    imageBase64: _avatarBase64,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryButton(label: 'Simpan', onPressed: _save),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _isPicking ? null : _pickAvatar,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                        ),
+                        icon: _isPicking
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.photo_library_outlined,
+                                size: 18,
+                              ),
+                        label: const Text('Pilih foto'),
+                      ),
+                      if (_avatarBase64 != null)
+                        TextButton(
+                          onPressed: _removeAvatar,
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                          ),
+                          child: const Text('Hapus foto'),
+                        ),
+                    ],
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 18),
+            if (_error != null) ...[
+              InfoBanner(
+                message: _error!,
+                icon: Icons.error_outline_rounded,
+                backgroundColor: AppColors.errorSurface,
+                foregroundColor: AppColors.error,
+              ),
+              const SizedBox(height: 12),
             ],
-          ),
+            const InfoBanner(
+              message: 'Foto profil disimpan di perangkat ini. Nama dan email mengikuti data akun di server.',
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Batal'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrimaryButton(label: 'Simpan', onPressed: _save),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
