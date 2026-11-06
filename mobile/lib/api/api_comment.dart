@@ -1,16 +1,20 @@
+import '../models/comment.dart';
 import '../models/session.dart';
 import 'services.dart';
 
 class ApiComment {
   ApiComment._();
 
-  static Future<List<Map<String, dynamic>>> getComments(int postId) async {
+  static Future<List<Comment>> getComments(int postId) async {
     final response = await ApiService.get('/comments/post/$postId');
     if (response is! Map || response['data'] is! List) {
       throw const ApiException('Data komentar tidak valid.');
     }
+
     return (response['data'] as List)
         .whereType<Map<String, dynamic>>()
+        .map(Comment.fromJson)
+        .where((comment) => comment.id > 0)
         .toList();
   }
 
