@@ -1,11 +1,11 @@
 {
-    "name": "mobile",
-    "short_name": "mobile",
+    "name": "Temuin",
+    "short_name": "Temuin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F5F7FB",
+    "theme_color": "#1E3F8F",
+    "description": "Lost & Found kampus: laporkan dan temukan barang hilang.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

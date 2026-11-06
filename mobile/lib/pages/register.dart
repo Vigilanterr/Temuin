@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../api/apiAuth.dart';
+import '../api/api_auth.dart';
 import '../theme.dart';
+import '../utils/validators.dart';
+import '../widgets/common.dart';
+import '../widgets/auth_shell.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -11,93 +14,141 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
   bool _isLoading = false;
+  String? _error;
 
-  void _handleRegister() async {
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRegister() async {
+    if (_isLoading) return;
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     final result = await ApiAuth.register(
-      _nameController.text.trim(),
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim().toLowerCase(),
+      password: _passwordController.text,
     );
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result['message']),
-        backgroundColor: result['success']
-            ? AppColors.success
-            : AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    if (result['success']) Navigator.pop(context);
+
+    if (!result.success) {
+      setState(() {
+        _isLoading = false;
+        _error = result.message;
+      });
+      return;
+    }
+
+    setState(() => _isLoading = false);
+    Navigator.pop(context, _emailController.text.trim().toLowerCase());
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppColors.textPrimary,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+    return AuthShell(
+      showBack: true,
+      onBack: () => Navigator.pop(context),
+      child: Form(
+        key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Buat Akun',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
+            Text(
+              'Buat akun baru',
+              style: Theme.of(context).textTheme.headlineLarge
+                  ?.copyWith(fontSize: 26),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Bergabunglah dengan komunitas kami',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+            Text(
+              'Bergabunglah dengan komunitas Temuin.',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 32),
-            TextField(
+            const SizedBox(height: 28),
+            if (_error != null) ...[
+              InfoBanner(
+                message: _error!,
+                icon: Icons.error_outline_rounded,
+                backgroundColor: AppColors.errorSurface,
+                foregroundColor: AppColors.error,
+              ),
+              const SizedBox(height: 18),
+            ],
+            AppTextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nama Lengkap',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
+              label: 'Nama lengkap',
+              prefixIcon: Icons.person_outline_rounded,
+              autofillHints: const [AutofillHints.name],
+              validator: (value) => validateRequired(value, 'Nama lengkap'),
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppTextField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
+              label: 'Email',
+              hint: 'nama@email.com',
+              prefixIcon: Icons.alternate_email_rounded,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              validator: validateEmail,
             ),
             const SizedBox(height: 16),
-            TextField(
+            AppTextField(
               controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icon(Icons.lock_outline),
-              ),
+              label: 'Password',
+              prefixIcon: Icons.lock_outline_rounded,
+              obscure: true,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: validatePassword,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _confirmController,
+              label: 'Konfirmasi password',
+              prefixIcon: Icons.lock_outline_rounded,
+              obscure: true,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.newPassword],
+              validator: (v) =>
+                  validateConfirmPassword(v, _passwordController.text),
+              onFieldSubmitted: (_) => _handleRegister(),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _handleRegister,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Daftar', style: TextStyle(fontSize: 16)),
+            PrimaryButton(
+              label: 'Daftar',
+              isLoading: _isLoading,
+              loadingLabel: 'Mendaftar...',
+              onPressed: _handleRegister,
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Sudah punya akun?',
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.textSecondary),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Masuk'),
+                ),
+              ],
             ),
           ],
         ),

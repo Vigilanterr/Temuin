@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../api/apiAuth.dart';
-import 'home.dart';
-import 'register.dart';
+import '../api/api_auth.dart';
 import '../theme.dart';
+import '../utils/validators.dart';
+import '../widgets/auth_shell.dart';
+import '../widgets/common.dart';
+import 'app_shell.dart';
+import 'register.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,103 +16,135 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _error;
 
-  void _handleLogin() async {
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     final result = await ApiAuth.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
+      _emailController.text.trim().toLowerCase(),
+      _passwordController.text,
     );
-    setState(() => _isLoading = false);
+    if (!mounted) return;
 
-    if (result['success']) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } else {
-      if (!mounted) return;
+    if (!result.success) {
+      setState(() {
+        _isLoading = false;
+        _error = result.message;
+      });
+      return;
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AppShell()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _openRegister() async {
+    final registeredEmail = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterPage()),
+    );
+    if (registeredEmail != null && mounted) {
+      _emailController.text = registeredEmail;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+        const SnackBar(content: Text('Registrasi berhasil. Silakan masuk.')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AuthShell(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Selamat datang kembali',
+              style: Theme.of(context).textTheme.headlineLarge
+                  ?.copyWith(fontSize: 26),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Masuk untuk melanjutkan ke laporan barang.',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 28),
+            if (_error != null) ...[
+              InfoBanner(
+                message: _error!,
+                icon: Icons.error_outline_rounded,
+                backgroundColor: AppColors.errorSurface,
+                foregroundColor: AppColors.error,
+              ),
+              const SizedBox(height: 18),
+            ],
+            AppTextField(
+              controller: _emailController,
+              label: 'Email',
+              hint: 'nama@email.com',
+              prefixIcon: Icons.alternate_email_rounded,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              textCapitalization: TextCapitalization.none,
+              validator: validateEmail,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _passwordController,
+              label: 'Password',
+              hint: 'Password Anda',
+              prefixIcon: Icons.lock_outline_rounded,
+              obscure: true,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
+              validator: validatePassword,
+              onFieldSubmitted: (_) => _handleLogin(),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(
+              label: 'Masuk',
+              isLoading: _isLoading,
+              loadingLabel: 'Memeriksa akun...',
+              onPressed: _handleLogin,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const SizedBox(height: 48),
-                const Center(
-                  child: Icon(Icons.school_outlined, size: 80, color: AppColors.primary),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Selamat Datang Kembali',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Silakan masuk dengan akun Anda',
-                  style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-                TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: Icon(Icons.lock_outline),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleLogin,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Masuk', style: TextStyle(fontSize: 16)),
+                Text(
+                  'Belum punya akun?',
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.textSecondary),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const RegisterPage()),
-                  ),
-                  child: const Text('Belum punya akun? Daftar'),
+                  onPressed: _isLoading ? null : _openRegister,
+                  child: const Text('Daftar'),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
