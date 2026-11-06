@@ -154,6 +154,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result == null || !mounted) return;
 
     await Session.updateProfile(
+      newName: result.newName,
       newAvatarBase64: result.avatarBase64,
       clearAvatar: result.clearAvatar,
     );
@@ -378,9 +379,6 @@ class _AccountCard extends StatelessWidget {
             value: displayName,
           ),
           const SizedBox(height: 16),
-          const InfoBanner(
-            message: 'Email dan nama tampilan dibaca dari data akun di server.',
-          ),
         ],
       ),
     );
@@ -490,10 +488,12 @@ class _MyPostsPreviewCard extends StatelessWidget {
 class _ProfileEditResult {
   const _ProfileEditResult({
     required this.avatarBase64,
+    required this.newName,
     required this.clearAvatar,
   });
 
   final String? avatarBase64;
+  final String? newName;
   final bool clearAvatar;
 }
 
@@ -514,6 +514,7 @@ class _EditProfileSheet extends StatefulWidget {
 
 class _EditProfileSheetState extends State<_EditProfileSheet> {
   String? _avatarBase64;
+  late final TextEditingController _nameController;
   bool _avatarChanged = false;
   bool _isPicking = false;
   String? _error;
@@ -522,6 +523,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   void initState() {
     super.initState();
     _avatarBase64 = widget.initialAvatarBase64;
+    _nameController = TextEditingController(text: widget.initialName);
   }
 
   Future<void> _pickAvatar() async {
@@ -565,6 +567,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       _ProfileEditResult(
         avatarBase64: _avatarBase64,
         clearAvatar: _avatarChanged && _avatarBase64 == null,
+        newName: _nameController.text.trim(),
       ),
     );
   }
@@ -643,6 +646,16 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               ),
             ),
             const SizedBox(height: 18),
+            AppTextField(
+              controller: _nameController,
+              label: 'Nama tampilan',
+              prefixIcon: Icons.person_outline_rounded,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              onChanged: (_) => setState(() {}),
+              onFieldSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 16),
             if (_error != null) ...[
               InfoBanner(
                 message: _error!,
@@ -653,7 +666,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
               const SizedBox(height: 12),
             ],
             const InfoBanner(
-              message: 'Foto profil disimpan di perangkat ini. Nama dan email mengikuti data akun di server.',
+              message: 'Foto profil disimpan di perangkat ini.',
             ),
             const SizedBox(height: 20),
             Row(
